@@ -1,0 +1,9 @@
+:root { color-scheme: light; font: 14px/1.45 system-ui, sans-serif; }
+body { width: 290px; margin: 0; color: #1f2328; background: #fff; }
+main { padding: 16px; }
+h1 { margin: 0 0 8px; font-size: 18px; }
+p { color: #59636e; margin: 0 0 14px; }
+button { width: 100%; padding: 9px 12px; margin: 4px 0; border: 1px solid #0969da; border-radius: 6px; color: #fff; background: #0969da; cursor: pointer; font-weight: 600; }
+button.secondary { color: #24292f; background: #f6f8fa; border-color: #d0d7de; }
+#status { min-height: 18px; margin: 8px 0; color: #1a7f37; }
+small { display: block; color: #656d76; margin-top: 8px; }

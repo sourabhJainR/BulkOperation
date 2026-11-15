@@ -182,13 +182,17 @@
     return name.replace(/\s+/g, " ").trim().replace(/\s+\(.*\)$/, "");
   }
 
-  const CONTROL_SELECTOR = 'button,input[type="button"],input[type="submit"],a[role="button"],[role="button"],[role="menuitem"],[aria-haspopup],summary,[tabindex="0"],[data-action]';
+  const CONTROL_SELECTOR = 'button,input[type="button"],input[type="submit"],a[href],[role="button"],[role="menuitem"],[aria-haspopup],summary,[tabindex="0"],[data-action],[onclick],[class*="button"],[class*="btn"],[class*="menu-trigger"],[class*="overflow"]';
 
   function isInteractive(node) {
     if (!node || !visible(node)) return false;
     if (node.matches("button,input[type=button],input[type=submit],a[href],summary,[role=button],[role=menuitem],[aria-haspopup],[data-action]")) return true;
-    return node.getAttribute("tabindex") === "0" &&
-      (node.hasAttribute("aria-label") || node.hasAttribute("aria-expanded") || node.hasAttribute("data-testid"));
+    if (node.getAttribute("tabindex") === "0" &&
+      (node.hasAttribute("aria-label") || node.hasAttribute("aria-expanded") || node.hasAttribute("data-testid"))) return true;
+    if (node.hasAttribute("onclick")) return true;
+    const classHint = (node.getAttribute("class") || "").toLowerCase();
+    return /button|btn|menu-trigger|overflow/.test(classHint) &&
+      getComputedStyle(node).cursor === "pointer";
   }
 
   function isMenuTrigger(node) {

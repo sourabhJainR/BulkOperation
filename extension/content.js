@@ -234,7 +234,7 @@
     const name = accessibleName(node).toLowerCase();
     const metadata = iconMetadata(node).toLowerCase();
     return /\b(delete|remove)\b/.test(name) ||
-      /octicon-trash|trash-can|trash-2|icon-trash|data-icon=["']?trash|delete-icon|icon[-_ ]?delete/.test(metadata);
+      /octicon-trash|trash-can|trash-2|icon-trash|lucide-trash|fa-trash|bi-trash|mdi-delete|data-icon=["']?trash|data-lucide=["']?trash|delete-icon|icon[-_ ]?delete|(?:^|[\\s_-])(delete|remove|trash)(?:$|[\\s_-])/.test(metadata);
   }
 
   async function discoverRowActions(item) {

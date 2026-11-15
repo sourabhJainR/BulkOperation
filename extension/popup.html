@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BulkOperation</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h1>BulkOperation</h1>
+    <p>Select rows on the current page and run supported actions one item at a time.</p>
+    <button id="enable" type="button">Enable selection on this page</button>
+    <button id="disable" class="secondary" type="button">Disable</button>
+    <p id="status" role="status" aria-live="polite"></p>
+    <small>Destructive actions require a review and confirmation.</small>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

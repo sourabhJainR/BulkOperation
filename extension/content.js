@@ -204,7 +204,7 @@
     const selectors = ['[role="menu"]','[role="listbox"]','[role="dialog"]','[aria-modal="true"]',
       '[data-radix-menu-content]','[data-radix-dropdown-menu-content]',
       '[data-state="open"][data-testid*="menu"]','[data-state="open"][class*="menu"]',
-      '[data-state="open"][class*="dropdown"]','[data-testid*="popover"]','details[open]'];
+      '[data-state="open"][class*="dropdown"]','[class*="dropdown-menu"]','[class*="context-menu"]','[class*="popover"]','[data-testid*="dropdown"]','[data-testid*="menu"]','[aria-label*="menu" i]','details[open]'];
     return [...new Set(selectors.flatMap(s => [...document.querySelectorAll(s)]))].filter(visible);
   }
 

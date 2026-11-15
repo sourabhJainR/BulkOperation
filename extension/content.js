@@ -144,7 +144,7 @@
     for (const attr of attrs) {
       const raw = node.getAttribute(attr);
       if (!raw) continue;
-      for (const token of raw.split(/[\\s,]+/).filter(Boolean)) {
+      for (const token of raw.split(/[\s,]+/).filter(Boolean)) {
         const id = token.replace(/^#/, "");
         const el = document.getElementById(id);
         if (el) refs.add(el);
@@ -179,7 +179,7 @@
       node.getAttribute("title"), node.getAttribute("data-tooltip"), textOf(node)]
       .filter(Boolean);
     const name = preferred[0] || accessibleName(node);
-    return name.replace(/\s+/g, " ").trim().replace(/\\s+\\(.*\\)$/, "");
+    return name.replace(/\s+/g, " ").trim().replace(/\s+\(.*\)$/, "");
   }
 
   const CONTROL_SELECTOR = 'button,input[type="button"],input[type="submit"],a[role="button"],[role="button"],[role="menuitem"],[aria-haspopup],summary,[tabindex="0"],[data-action]';
@@ -210,7 +210,7 @@
 
   function menuRootsForTrigger(trigger, beforeRoots = []) {
     const before = new Set(beforeRoots);
-    const ids = (trigger.getAttribute("aria-controls") || "").split(/\\s+/).filter(Boolean);
+    const ids = (trigger.getAttribute("aria-controls") || "").split(/\s+/).filter(Boolean);
     const controlled = ids.map(id => document.getElementById(id)).filter(visible);
     const after = visibleMenuRoots();
     const opened = after.filter(root => !before.has(root));
@@ -375,7 +375,7 @@
     await wait(700);
     const branchStillListed = [...document.querySelectorAll('a[href*="/tree/"],a[href*="/branch/"]')].some(anchor => {
       try {
-        const match = new URL(anchor.href, location.href).pathname.match(/\\/(?:tree|branch)\\/(.+)$/);
+        const match = new URL(anchor.href, location.href).pathname.match(/\/(?:tree|branch)\/(.+)$/);
         return match && decodeURIComponent(match[1]) === item.label;
       } catch { return false; }
     });

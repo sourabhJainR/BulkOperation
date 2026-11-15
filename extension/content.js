@@ -198,38 +198,62 @@
   async function githubDelete(item) {
     if (!item.row.isConnected) throw new Error("Row is no longer on the page.");
     if (isProtectedBranch(item)) throw new Error("Protected or default branch was skipped.");
-    const buttons = [...item.row.querySelectorAll("button,[role=button]")].filter(visible);
-    const menuButton = buttons.find(b => /branch options|more options|actions|menu/i.test((b.getAttribute("aria-label") || "") + " " + (b.title || "") + " " + textOf(b)));
-    if (!menuButton) throw new Error("Could not find the branch actions menu.");
-    menuButton.click();
-    await wait(250);
-    const menus = [...document.querySelectorAll('[role=menu], [role=menuitem], button, a')].filter(visible);
-    const deleteAction = menus.find(node => /^delete branch$/i.test(textOf(node)) || /delete branch/i.test(node.getAttribute("aria-label") || ""));
-    if (!deleteAction) {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-      throw new Error("GitHub did not expose a visible Delete branch action.");
-    }
-    deleteAction.click();
-    await wait(250);
-    const dialog = [...document.querySelectorAll('[role=dialog], dialog')].find(visible);
-    if (dialog) {
-      const confirm = [...dialog.querySelectorAll("button")].find(b => visible(b) && /^delete$/i.test(textOf(b)));
-      if (confirm) confirm.click();
-      else throw new Error("GitHub confirmation dialog did not expose a clear Delete button.");
+
+    const controls = [...item.row.querySelectorAll("button,[role=button],a[role=button]")].filter(visible);
+    const isDeleteControl = node => {
+      const accessibleName = [node.getAttribute("aria-label"), node.getAttribute("title"), textOf(node)]
+        .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim();
+      return /^delete(?:\\s+branch)?$/i.test(accessibleName) ||
+        /^delete(?:\\s+branch)?\\b/i.test(node.getAttribute("aria-label") || "");
+    };
+
+    // The active-branches view exposes Delete directly on each row. Prefer that
+    // page-owned control; older GitHub layouts may still expose an actions menu.
+    const directDelete = controls.find(isDeleteControl);
+    if (directDelete) {
+      directDelete.click();
     } else {
-      const confirm = [...document.querySelectorAll("button")].find(b => visible(b) && /^delete branch$/i.test(textOf(b)));
-      if (confirm) confirm.click();
-      else throw new Error("Could not confirm deletion through GitHub's visible interface.");
+      const menuButton = controls.find(node =>
+        /branch options|more options|actions|menu/i.test(
+          (node.getAttribute("aria-label") || "") + " " + (node.title || "") + " " + textOf(node)
+        )
+      );
+      if (!menuButton) throw new Error("Could not find a visible Delete button or branch actions menu.");
+      menuButton.click();
+      await wait(250);
+      const menuRoots = [...document.querySelectorAll('[role="menu"]')].filter(visible);
+      const menuCandidates = menuRoots.flatMap(root => [...root.querySelectorAll('[role="menuitem"],button,a')])
+        .filter(visible);
+      const deleteAction = menuCandidates.find(isDeleteControl) ||
+        [...document.querySelectorAll('[role="menuitem"]')].filter(visible).find(isDeleteControl);
+      if (!deleteAction) {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        throw new Error("GitHub did not expose a visible Delete branch action in the row menu.");
+      }
+      deleteAction.click();
     }
-    await wait(500);
-    const stillPresent = [...document.querySelectorAll('a[href*="/tree/"],a[href*="/branch/"]')].some(a => {
+
+    await wait(300);
+    const dialog = [...document.querySelectorAll('[role="dialog"], dialog, [aria-modal="true"]')].find(visible);
+    if (dialog) {
+      const confirm = [...dialog.querySelectorAll("button,[role=button]")].find(node =>
+        visible(node) && /^delete(?:\\s+branch)?$/i.test(textOf(node))
+      );
+      if (!confirm) throw new Error("GitHub confirmation dialog did not expose a clear Delete button.");
+      confirm.click();
+    }
+
+    await wait(700);
+    const branchStillListed = [...document.querySelectorAll('a[href*="/tree/"],a[href*="/branch/"]')].some(anchor => {
       try {
-        const path = new URL(a.href, location.href).pathname;
-        const match = path.match(/\/(?:tree|branch)\/(.+)$/);
+        const path = new URL(anchor.href, location.href).pathname;
+        const match = path.match(/\\/(?:tree|branch)\\/(.+)$/);
         return match && decodeURIComponent(match[1]) === item.label;
       } catch { return false; }
     });
-    if (stillPresent) throw new Error("GitHub has not visibly removed this branch yet.");
+    if (item.row.isConnected && branchStillListed) {
+      throw new Error("GitHub has not visibly removed this branch yet.");
+    }
   }
 
   function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }

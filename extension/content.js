@@ -201,10 +201,9 @@
 
     const controls = [...item.row.querySelectorAll("button,[role=button],a[role=button]")].filter(visible);
     const isDeleteControl = node => {
-      const accessibleName = [node.getAttribute("aria-label"), node.getAttribute("title"), textOf(node)]
-        .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim();
-      return /^delete(?:\\s+branch)?$/i.test(accessibleName) ||
-        /^delete(?:\\s+branch)?\\b/i.test(node.getAttribute("aria-label") || "");
+      const names = [node.getAttribute("aria-label"), node.getAttribute("title"), textOf(node)]
+        .filter(Boolean).map(value => value.replace(/\\s+/g, " ").trim());
+      return names.some(name => /^delete(?:\\s+branch)?$/i.test(name));
     };
 
     // The active-branches view exposes Delete directly on each row. Prefer that

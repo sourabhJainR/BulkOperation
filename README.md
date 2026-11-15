@@ -18,8 +18,8 @@ Download the single-file [BulkOperation ZIP package](https://github.com/sourabhJ
 
 1. Extract the ZIP.
 2. Open `chrome://extensions` in Chrome.
-4. Enable **Developer mode**.
-5. Select **Load unpacked** and choose the extracted `extension` folder.
+3. Enable **Developer mode**.
+4. Select **Load unpacked** and choose the extracted `extension` folder.
 
 The included Windows helper opens the extension page and displays the installation steps. Chrome requires the user to complete the final Load unpacked action.
 

@@ -14,9 +14,10 @@ BulkOperation is a Chrome extension that adds multi-selection and controlled seq
 
 ## Install
 
-1. Download the latest **BulkOperation Installer** ZIP from the repository's GitHub Actions artifact or Releases page.
-2. Extract the ZIP.
-3. Open `chrome://extensions` in Chrome.
+Download the single-file [BulkOperation ZIP package](https://github.com/sourabhJainR/BulkOperation/archive/refs/heads/feature/chrome-bulk-operation-extension.zip) while this implementation is under review. After the pull request is merged, the GitHub Actions workflow will publish a curated **BulkOperation-Installer.zip** artifact; tagged releases will include the same package.
+
+1. Extract the ZIP.
+2. Open `chrome://extensions` in Chrome.
 4. Enable **Developer mode**.
 5. Select **Load unpacked** and choose the extracted `extension` folder.
 

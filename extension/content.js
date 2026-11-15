@@ -251,14 +251,22 @@
             const target = [...item.row.querySelectorAll("button,[role=button],a[role=button]")]
               .find(node => visible(node) && actionName(node) === name);
             if (!target) throw new Error("The selected row no longer exposes the action: " + name);
+            const dialogsBefore = [...document.querySelectorAll('[role="dialog"],dialog,[aria-modal="true"]')].filter(visible).length;
             target.click();
-            await wait(500);
+            await wait(400);
+            const dialogsAfter = [...document.querySelectorAll('[role="dialog"],dialog,[aria-modal="true"]')].filter(visible).length;
+            if (dialogsAfter > dialogsBefore) {
+              const pause = new Error("The page opened its own confirmation dialog. Complete it manually; the remaining batch was stopped for safety.");
+              pause.stopBatch = true;
+              throw pause;
+            }
           } else throw new Error("Choose a supported action.");
           results.push({ label: item.label, ok: true });
           state.completed.add(item.key);
           state.selected.delete(item.key);
         } catch (error) {
           results.push({ label: item.label, ok: false, error: error.message });
+          if (error.stopBatch) break;
         }
         await wait(350);
       }

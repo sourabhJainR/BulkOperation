@@ -202,8 +202,8 @@
     const controls = [...item.row.querySelectorAll("button,[role=button],a[role=button]")].filter(visible);
     const isDeleteControl = node => {
       const names = [node.getAttribute("aria-label"), node.getAttribute("title"), textOf(node)]
-        .filter(Boolean).map(value => value.replace(/\\s+/g, " ").trim());
-      return names.some(name => /^delete(?:\\s+branch)?$/i.test(name));
+        .filter(Boolean).map(value => value.replace(/\s+/g, " ").trim());
+      return names.some(name => /^delete(?:\s+branch)?$/i.test(name));
     };
 
     // The active-branches view exposes Delete directly on each row. Prefer that
@@ -236,7 +236,7 @@
     const dialog = [...document.querySelectorAll('[role="dialog"], dialog, [aria-modal="true"]')].find(visible);
     if (dialog) {
       const confirm = [...dialog.querySelectorAll("button,[role=button]")].find(node =>
-        visible(node) && /^delete(?:\\s+branch)?$/i.test(textOf(node))
+        visible(node) && /^delete(?:\s+branch)?$/i.test(textOf(node))
       );
       if (!confirm) throw new Error("GitHub confirmation dialog did not expose a clear Delete button.");
       confirm.click();
@@ -246,7 +246,7 @@
     const branchStillListed = [...document.querySelectorAll('a[href*="/tree/"],a[href*="/branch/"]')].some(anchor => {
       try {
         const path = new URL(anchor.href, location.href).pathname;
-        const match = path.match(/\\/(?:tree|branch)\\/(.+)$/);
+        const match = path.match(/\/(?:tree|branch)\/(.+)$/);
         return match && decodeURIComponent(match[1]) === item.label;
       } catch { return false; }
     });

@@ -3,7 +3,6 @@
   "name": "BulkOperation",
   "version": "1.0.0",
   "description": "Select multiple rows in webpage grids and run supported row actions safely.",
-  "permissions": ["activeTab", "storage"],
   "action": {
     "default_title": "BulkOperation",
     "default_popup": "popup.html"

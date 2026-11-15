@@ -175,15 +175,11 @@
   }
 
   function actionName(node) {
-    const candidates = [
-      node.getAttribute("aria-label"),
-      labelledByText(node),
-      node.getAttribute("title"),
-      node.getAttribute("data-tooltip"),
-      textOf(node),
-      node.getAttribute("data-testid")
-    ].filter(Boolean);
-    return (candidates[0] || "").replace(/\s+/g, " ").trim().replace(/\s+\(.*\)$/, "");
+    const preferred = [node.getAttribute("aria-label"), referencedText(node),
+      node.getAttribute("title"), node.getAttribute("data-tooltip"), textOf(node)]
+      .filter(Boolean);
+    const name = preferred[0] || accessibleName(node);
+    return name.replace(/\\s+/g, " ").trim().replace(/\\s+\\(.*\\)$/, "");
   }
 
   const CONTROL_SELECTOR = 'button,input[type="button"],input[type="submit"],a[role="button"],[role="button"],[role="menuitem"],[aria-haspopup],summary,[tabindex="0"],[data-action]';

@@ -16,21 +16,19 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Configure Pages
+      - name: Verify Pages is enabled
         id: pages_config
-        continue-on-error: true
         uses: actions/configure-pages@v5
       - name: Upload website
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
       - name: Deploy website
-        if: steps.pages_config.outcome == 'success'
         id: deployment
         uses: actions/deploy-pages@v4
-      - name: Explain pending setup
-        if: steps.pages_config.outcome != 'success'
-        run: echo "::notice::Enable GitHub Pages in Settings > Pages and set Build and deployment Source to GitHub Actions. Re-run this workflow to publish the site."

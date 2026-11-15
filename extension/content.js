@@ -138,20 +138,40 @@
     updateToolbar();
   }
 
-  function labelledByText(node) {
-    const ids = (node.getAttribute("aria-labelledby") || "").trim().split(/\s+/).filter(Boolean);
-    return ids.map(id => document.getElementById(id)).filter(Boolean).map(textOf).filter(Boolean).join(" ");
+  function referencedText(node) {
+    const attrs = ["aria-labelledby","aria-describedby","aria-details","aria-owns","aria-controls","data-tooltip-id","data-tooltip-target","data-target"];
+    const refs = new Set();
+    for (const attr of attrs) {
+      const raw = node.getAttribute(attr);
+      if (!raw) continue;
+      for (const token of raw.split(/[\\s,]+/).filter(Boolean)) {
+        const id = token.replace(/^#/, "");
+        const el = document.getElementById(id);
+        if (el) refs.add(el);
+        if (token.startsWith("#")) { try { document.querySelectorAll(token).forEach(x => refs.add(x)); } catch {} }
+      }
+    }
+    return [...refs].map(textOf).filter(Boolean).join(" ");
+  }
+
+  function iconMetadata(node) {
+    const parts = [];
+    for (const el of [node, ...node.querySelectorAll("svg,[data-icon],[data-testid],[class]")]) {
+      for (const attr of ["aria-label","title","data-icon","data-testid","data-action","name","class"]) {
+        const value = el.getAttribute?.(attr);
+        if (value) parts.push(value);
+      }
+      const title = el.querySelector?.("title");
+      if (title) parts.push(textOf(title));
+    }
+    return parts.join(" ");
   }
 
   function accessibleName(node) {
-    return [
-      node.getAttribute("aria-label"),
-      labelledByText(node),
-      node.getAttribute("title"),
-      node.getAttribute("data-tooltip"),
-      node.getAttribute("data-original-title"),
-      textOf(node)
-    ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    return [node.getAttribute("aria-label"), referencedText(node), node.getAttribute("title"),
+      node.getAttribute("data-tooltip"), node.getAttribute("data-original-title"),
+      node.getAttribute("data-content"), textOf(node), iconMetadata(node)]
+      .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim();
   }
 
   function actionName(node) {
@@ -166,39 +186,62 @@
     return (candidates[0] || "").replace(/\s+/g, " ").trim().replace(/\s+\(.*\)$/, "");
   }
 
-  function isMenuTrigger(node) {
-    const label = [
-      node.getAttribute("aria-label"), node.getAttribute("title"),
-      node.getAttribute("data-testid"), textOf(node)
-    ].filter(Boolean).join(" ").toLowerCase();
-    const popup = (node.getAttribute("aria-haspopup") || "").toLowerCase();
-    return popup === "menu" || popup === "true" ||
-      node.hasAttribute("aria-expanded") ||
-      /more|actions?|options?|menu|overflow|ellipsis|kebab|dropdown/i.test(label) ||
-      /overflow|ellipsis|kebab|more-options|row-menu/i.test(node.getAttribute("data-testid") || "");
+  const CONTROL_SELECTOR = 'button,input[type="button"],input[type="submit"],a[role="button"],[role="button"],[role="menuitem"],[aria-haspopup],summary,[tabindex="0"],[data-action]';
+
+  function isInteractive(node) {
+    if (!node || !visible(node)) return false;
+    if (node.matches("button,input[type=button],input[type=submit],a[href],summary,[role=button],[role=menuitem],[aria-haspopup],[data-action]")) return true;
+    return node.getAttribute("tabindex") === "0" &&
+      (node.hasAttribute("aria-label") || node.hasAttribute("aria-expanded") || node.hasAttribute("data-testid"));
   }
 
-  function visibleMenuActions() {
-    const roots = [...document.querySelectorAll(
-      '[role="menu"],[data-radix-menu-content],[data-state="open"][role="dialog"],[role="listbox"]'
-    )].filter(visible);
+  function isMenuTrigger(node) {
+    const label = accessibleName(node).toLowerCase();
+    const popup = (node.getAttribute("aria-haspopup") || "").toLowerCase();
+    const metadata = iconMetadata(node).toLowerCase();
+    return ["menu","listbox","true"].includes(popup) || node.hasAttribute("aria-expanded") ||
+      node.hasAttribute("aria-controls") ||
+      /more|actions?|options?|menu|overflow|ellipsis|kebab|dropdown|additional|context/i.test(label + " " + metadata);
+  }
+
+  function visibleMenuRoots() {
+    const selectors = ['[role="menu"]','[role="listbox"]','[role="dialog"]','[aria-modal="true"]',
+      '[data-radix-menu-content]','[data-radix-dropdown-menu-content]',
+      '[data-state="open"][data-testid*="menu"]','[data-state="open"][class*="menu"]',
+      '[data-state="open"][class*="dropdown"]','[data-testid*="popover"]'];
+    return [...new Set(selectors.flatMap(s => [...document.querySelectorAll(s)]))].filter(visible);
+  }
+
+  function menuRootsForTrigger(trigger, beforeRoots = []) {
+    const before = new Set(beforeRoots);
+    const ids = (trigger.getAttribute("aria-controls") || "").split(/\\s+/).filter(Boolean);
+    const controlled = ids.map(id => document.getElementById(id)).filter(visible);
+    const after = visibleMenuRoots();
+    const opened = after.filter(root => !before.has(root));
+    return [...new Set([...controlled, ...opened, ...(trigger.getAttribute("aria-expanded") === "true" ? after : [])])];
+  }
+
+  function visibleMenuActions(roots = visibleMenuRoots()) {
     const nodes = new Set();
     for (const root of roots) {
-      for (const node of root.querySelectorAll('[role="menuitem"],[role="option"],button,a,[role="button"]')) {
-        if (visible(node)) nodes.add(node);
-      }
-    }
-    for (const node of document.querySelectorAll('[role="menuitem"],[role="option"]')) {
-      if (visible(node)) nodes.add(node);
+      if (isInteractive(root)) nodes.add(root);
+      for (const node of root.querySelectorAll(CONTROL_SELECTOR)) if (isInteractive(node)) nodes.add(node);
     }
     return [...nodes];
+  }
+
+  function isDeleteAction(node) {
+    const name = accessibleName(node).toLowerCase();
+    const metadata = iconMetadata(node).toLowerCase();
+    return /\\b(delete|remove)\\b/.test(name) ||
+      /octicon-trash|trash-can|trash-2|icon-trash|data-icon=["']?trash|delete-icon/.test(metadata);
   }
 
   async function discoverRowActions(item) {
     if (!item.row.isConnected) return [];
     const actions = new Map();
-    const controls = [...item.row.querySelectorAll("button,[role=button],a[role=button]")]
-      .filter(node => visible(node) && !node.classList.contains("bo-row-checkbox") && !isOurNode(node));
+    const controls = [...item.row.querySelectorAll(CONTROL_SELECTOR)]
+      .filter(node => isInteractive(node) && !node.classList.contains("bo-row-checkbox") && !isOurNode(node));
     for (const node of controls) {
       const label = actionName(node);
       if (label && label.length <= 90 && !isMenuTrigger(node)) {
@@ -212,9 +255,10 @@
     for (const trigger of triggers) {
       if (!trigger.isConnected || !visible(trigger)) continue;
       try {
+        const beforeRoots = visibleMenuRoots();
         trigger.click();
-        await wait(140);
-        for (const node of visibleMenuActions()) {
+        await wait(180);
+        for (const node of visibleMenuActions(menuRootsForTrigger(trigger, beforeRoots))) {
           const label = actionName(node);
           if (!label || label.length > 90 || /^(close|cancel)$/i.test(label)) continue;
           const descriptor = { kind: "menu", label };
@@ -305,54 +349,29 @@
     if (!item.row.isConnected) throw new Error("Row is no longer on the page.");
     if (isProtectedBranch(item)) throw new Error("Protected or default branch was skipped.");
 
-    const controls = [...item.row.querySelectorAll("button,[role=button],a[role=button]")].filter(visible);
-    const isDeleteControl = node => {
-      // GitHub's current active-branches table uses an icon-only trash button.
-      // Its accessible name is on a sibling tooltip referenced by aria-labelledby,
-      // not on the button itself. Resolve that reference before checking the icon.
-      const names = [
-        accessibleName(node),
-        ...[...node.querySelectorAll("[aria-label],[title],[data-tooltip]")].map(accessibleName)
-      ].filter(Boolean).map(value => value.replace(/\s+/g, " ").trim());
-      if (names.some(name => /^delete(?:\s+branch)?$/i.test(name))) return true;
-      const icon = node.querySelector(
-        'svg.octicon-trash, svg[class*="octicon-trash"], [data-icon="trash"], [data-testid*="trash"]'
-      );
-      if (!icon) return false;
-      const tooltip = labelledByText(node).toLowerCase();
-      return !tooltip || /delete\s+branch|delete/.test(tooltip);
-    };
-
-    // The active-branches view exposes Delete directly on each row. Prefer that
-    // page-owned control; older GitHub layouts may still expose an actions menu.
-    const directDelete = controls.find(isDeleteControl);
+    const controls = [...item.row.querySelectorAll(CONTROL_SELECTOR)].filter(isInteractive);
+    const directDelete = controls.find(isDeleteAction);
     if (directDelete) {
       directDelete.click();
     } else {
-      const menuButton = controls.find(node =>
-        /branch options|branch menu|more options|actions|menu/i.test(accessibleName(node))
-      );
-      if (!menuButton) throw new Error("Could not find a visible Delete button or branch actions menu.");
-      menuButton.click();
-      await wait(250);
-      const menuRoots = [...document.querySelectorAll('[role="menu"]')].filter(visible);
-      const menuCandidates = menuRoots.flatMap(root => [...root.querySelectorAll('[role="menuitem"],button,a')])
-        .filter(visible);
-      const deleteAction = menuCandidates.find(isDeleteControl) ||
-        [...document.querySelectorAll('[role="menuitem"]')].filter(visible).find(isDeleteControl);
-      if (!deleteAction) {
+      let deleteAction = null;
+      for (const trigger of controls.filter(isMenuTrigger)) {
+        const beforeRoots = visibleMenuRoots();
+        trigger.click();
+        await wait(220);
+        deleteAction = visibleMenuActions(menuRootsForTrigger(trigger, beforeRoots)).find(isDeleteAction);
+        if (deleteAction) break;
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-        throw new Error("GitHub did not expose a visible Delete branch action in the row menu.");
+        await wait(80);
       }
+      if (!deleteAction) throw new Error("Could not safely identify a Delete action in this row. Check its accessible label, tooltip, icon, or menu markup.");
       deleteAction.click();
     }
 
     await wait(300);
-    const dialog = [...document.querySelectorAll('[role="dialog"], dialog, [aria-modal="true"]')].find(visible);
+    const dialog = [...document.querySelectorAll('[role="dialog"],dialog,[aria-modal="true"]')].find(visible);
     if (dialog) {
-      const confirm = [...dialog.querySelectorAll("button,[role=button]")].find(node =>
-        visible(node) && /^delete(?:\s+branch)?$/i.test(textOf(node))
-      );
+      const confirm = [...dialog.querySelectorAll(CONTROL_SELECTOR)].find(node => isInteractive(node) && isDeleteAction(node));
       if (!confirm) throw new Error("GitHub confirmation dialog did not expose a clear Delete button.");
       confirm.click();
     }
@@ -360,14 +379,11 @@
     await wait(700);
     const branchStillListed = [...document.querySelectorAll('a[href*="/tree/"],a[href*="/branch/"]')].some(anchor => {
       try {
-        const path = new URL(anchor.href, location.href).pathname;
-        const match = path.match(/\/(?:tree|branch)\/(.+)$/);
+        const match = new URL(anchor.href, location.href).pathname.match(/\\/(?:tree|branch)\\/(.+)$/);
         return match && decodeURIComponent(match[1]) === item.label;
       } catch { return false; }
     });
-    if (item.row.isConnected && branchStillListed) {
-      throw new Error("GitHub has not visibly removed this branch yet.");
-    }
+    if (item.row.isConnected && branchStillListed) throw new Error("GitHub has not visibly removed this branch yet.");
   }
 
   function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
@@ -387,17 +403,18 @@
             const descriptor = JSON.parse(action.slice("generic:".length));
             const dialogsBefore = [...document.querySelectorAll('[role="dialog"],dialog,[aria-modal="true"]')].filter(visible).length;
             if (descriptor.kind === "direct") {
-              const target = [...item.row.querySelectorAll("button,[role=button],a[role=button]")]
+              const target = [...item.row.querySelectorAll(CONTROL_SELECTOR)]
                 .find(node => visible(node) && !isMenuTrigger(node) && actionName(node) === descriptor.label);
               if (!target) throw new Error("The selected row no longer exposes button: " + descriptor.label);
               target.click();
             } else {
-              const triggers = [...item.row.querySelectorAll("button,[role=button],a[role=button]")].filter(node => visible(node) && isMenuTrigger(node));
+              const triggers = [...item.row.querySelectorAll(CONTROL_SELECTOR)].filter(node => isInteractive(node) && isMenuTrigger(node));
               let target = null;
               for (const trigger of triggers) {
+                const beforeRoots = visibleMenuRoots();
                 trigger.click();
-                await wait(140);
-                target = visibleMenuActions().find(node => actionName(node) === descriptor.label);
+                await wait(180);
+                target = visibleMenuActions(menuRootsForTrigger(trigger, beforeRoots)).find(node => actionName(node) === descriptor.label);
                 if (target) break;
                 document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
                 await wait(60);

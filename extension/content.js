@@ -139,7 +139,7 @@
   }
 
   function referencedText(node) {
-    const attrs = ["aria-labelledby","aria-describedby","aria-details","aria-owns","aria-controls","data-tooltip-id","data-tooltip-target","data-target"];
+    const attrs = ["aria-labelledby","aria-describedby","aria-details","aria-owns","aria-controls","data-tooltip-id","data-tooltip-target","data-tooltip-content","data-bs-title","data-tip","data-target"];
     const refs = new Set();
     for (const attr of attrs) {
       const raw = node.getAttribute(attr);
@@ -156,8 +156,8 @@
 
   function iconMetadata(node) {
     const parts = [];
-    for (const el of [node, ...node.querySelectorAll("svg,[data-icon],[data-testid],[class]")]) {
-      for (const attr of ["aria-label","title","data-icon","data-testid","data-action","name","class"]) {
+    for (const el of [node, ...node.querySelectorAll("svg,use,[data-icon],[data-testid],[class]")]) {
+      for (const attr of ["aria-label","title","data-icon","data-testid","data-action","data-lucide","href","xlink:href","name","class"]) {
         const value = el.getAttribute?.(attr);
         if (value) parts.push(value);
       }
@@ -170,7 +170,7 @@
   function accessibleName(node) {
     return [node.getAttribute("aria-label"), referencedText(node), node.getAttribute("title"),
       node.getAttribute("data-tooltip"), node.getAttribute("data-original-title"),
-      node.getAttribute("data-content"), textOf(node), iconMetadata(node)]
+      node.getAttribute("data-content"), node.getAttribute("data-tooltip-content"), node.getAttribute("data-bs-title"), node.getAttribute("data-tip"), textOf(node), iconMetadata(node)]
       .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   }
 
@@ -197,14 +197,14 @@
     const metadata = iconMetadata(node).toLowerCase();
     return ["menu","listbox","true"].includes(popup) || node.hasAttribute("aria-expanded") ||
       node.hasAttribute("aria-controls") ||
-      /more|actions?|options?|menu|overflow|ellipsis|kebab|dropdown|additional|context/i.test(label + " " + metadata);
+      /more|actions?|options?|menu|overflow|ellipsis|kebab|three[-_ ]?dots|dots?[-_ ]?(?:horizontal|vertical)|dropdown|additional|context/i.test(label + " " + metadata);
   }
 
   function visibleMenuRoots() {
     const selectors = ['[role="menu"]','[role="listbox"]','[role="dialog"]','[aria-modal="true"]',
       '[data-radix-menu-content]','[data-radix-dropdown-menu-content]',
       '[data-state="open"][data-testid*="menu"]','[data-state="open"][class*="menu"]',
-      '[data-state="open"][class*="dropdown"]','[data-testid*="popover"]'];
+      '[data-state="open"][class*="dropdown"]','[data-testid*="popover"]','details[open]'];
     return [...new Set(selectors.flatMap(s => [...document.querySelectorAll(s)]))].filter(visible);
   }
 
@@ -214,7 +214,7 @@
     const controlled = ids.map(id => document.getElementById(id)).filter(visible);
     const after = visibleMenuRoots();
     const opened = after.filter(root => !before.has(root));
-    return [...new Set([...controlled, ...opened, ...(trigger.getAttribute("aria-expanded") === "true" ? after : [])])];
+    return [...new Set([...controlled, ...opened])];
   }
 
   function visibleMenuActions(roots = visibleMenuRoots()) {
@@ -230,7 +230,7 @@
     const name = accessibleName(node).toLowerCase();
     const metadata = iconMetadata(node).toLowerCase();
     return /\b(delete|remove)\b/.test(name) ||
-      /octicon-trash|trash-can|trash-2|icon-trash|data-icon=["']?trash|delete-icon/.test(metadata);
+      /octicon-trash|trash-can|trash-2|icon-trash|data-icon=["']?trash|delete-icon|icon[-_ ]?delete/.test(metadata);
   }
 
   async function discoverRowActions(item) {

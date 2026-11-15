@@ -171,7 +171,7 @@
     return [node.getAttribute("aria-label"), referencedText(node), node.getAttribute("title"),
       node.getAttribute("data-tooltip"), node.getAttribute("data-original-title"),
       node.getAttribute("data-content"), textOf(node), iconMetadata(node)]
-      .filter(Boolean).join(" ").replace(/\\s+/g, " ").trim();
+      .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   }
 
   function actionName(node) {
@@ -179,7 +179,7 @@
       node.getAttribute("title"), node.getAttribute("data-tooltip"), textOf(node)]
       .filter(Boolean);
     const name = preferred[0] || accessibleName(node);
-    return name.replace(/\\s+/g, " ").trim().replace(/\\s+\\(.*\\)$/, "");
+    return name.replace(/\s+/g, " ").trim().replace(/\\s+\\(.*\\)$/, "");
   }
 
   const CONTROL_SELECTOR = 'button,input[type="button"],input[type="submit"],a[role="button"],[role="button"],[role="menuitem"],[aria-haspopup],summary,[tabindex="0"],[data-action]';
@@ -229,7 +229,7 @@
   function isDeleteAction(node) {
     const name = accessibleName(node).toLowerCase();
     const metadata = iconMetadata(node).toLowerCase();
-    return /\\b(delete|remove)\\b/.test(name) ||
+    return /\b(delete|remove)\b/.test(name) ||
       /octicon-trash|trash-can|trash-2|icon-trash|data-icon=["']?trash|delete-icon/.test(metadata);
   }
 

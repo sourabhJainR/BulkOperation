@@ -1,0 +1,42 @@
+name: Package Chrome extension
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Manifest V3 package
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("extension/manifest.json").read_text())
+          assert manifest["manifest_version"] == 3
+          assert Path("extension/content.js").is_file()
+          assert Path("extension/service-worker.js").is_file()
+          print("Manifest and required extension files are present.")
+          PY
+      - name: Create installer ZIP
+        run: |
+          mkdir -p dist/BulkOperation
+          cp -R extension dist/BulkOperation/extension
+          cp scripts/install-windows.bat README.md dist/BulkOperation/
+          cd dist
+          zip -r BulkOperation-Installer.zip BulkOperation
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BulkOperation-Installer
+          path: dist/BulkOperation-Installer.zip
+          if-no-files-found: error
+      - name: Attach ZIP to tagged release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/BulkOperation-Installer.zip

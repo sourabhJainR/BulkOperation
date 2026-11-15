@@ -138,9 +138,26 @@
     updateToolbar();
   }
 
+  function labelledByText(node) {
+    const ids = (node.getAttribute("aria-labelledby") || "").trim().split(/\s+/).filter(Boolean);
+    return ids.map(id => document.getElementById(id)).filter(Boolean).map(textOf).filter(Boolean).join(" ");
+  }
+
+  function accessibleName(node) {
+    return [
+      node.getAttribute("aria-label"),
+      labelledByText(node),
+      node.getAttribute("title"),
+      node.getAttribute("data-tooltip"),
+      node.getAttribute("data-original-title"),
+      textOf(node)
+    ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  }
+
   function actionName(node) {
     const candidates = [
       node.getAttribute("aria-label"),
+      labelledByText(node),
       node.getAttribute("title"),
       node.getAttribute("data-tooltip"),
       textOf(node),
@@ -290,9 +307,20 @@
 
     const controls = [...item.row.querySelectorAll("button,[role=button],a[role=button]")].filter(visible);
     const isDeleteControl = node => {
-      const names = [node.getAttribute("aria-label"), node.getAttribute("title"), textOf(node)]
-        .filter(Boolean).map(value => value.replace(/\s+/g, " ").trim());
-      return names.some(name => /^delete(?:\s+branch)?$/i.test(name));
+      // GitHub's current active-branches table uses an icon-only trash button.
+      // Its accessible name is on a sibling tooltip referenced by aria-labelledby,
+      // not on the button itself. Resolve that reference before checking the icon.
+      const names = [
+        accessibleName(node),
+        ...[...node.querySelectorAll("[aria-label],[title],[data-tooltip]")].map(accessibleName)
+      ].filter(Boolean).map(value => value.replace(/\s+/g, " ").trim());
+      if (names.some(name => /^delete(?:\s+branch)?$/i.test(name))) return true;
+      const icon = node.querySelector(
+        'svg.octicon-trash, svg[class*="octicon-trash"], [data-icon="trash"], [data-testid*="trash"]'
+      );
+      if (!icon) return false;
+      const tooltip = labelledByText(node).toLowerCase();
+      return !tooltip || /delete\s+branch|delete/.test(tooltip);
     };
 
     // The active-branches view exposes Delete directly on each row. Prefer that
@@ -302,9 +330,7 @@
       directDelete.click();
     } else {
       const menuButton = controls.find(node =>
-        /branch options|more options|actions|menu/i.test(
-          (node.getAttribute("aria-label") || "") + " " + (node.title || "") + " " + textOf(node)
-        )
+        /branch options|branch menu|more options|actions|menu/i.test(accessibleName(node))
       );
       if (!menuButton) throw new Error("Could not find a visible Delete button or branch actions menu.");
       menuButton.click();

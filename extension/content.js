@@ -143,8 +143,8 @@
       node.getAttribute("aria-label"),
       node.getAttribute("title"),
       node.getAttribute("data-tooltip"),
-      node.getAttribute("data-testid"),
-      textOf(node)
+      textOf(node),
+      node.getAttribute("data-testid")
     ].filter(Boolean);
     return (candidates[0] || "").replace(/\s+/g, " ").trim().replace(/\s+\(.*\)$/, "");
   }

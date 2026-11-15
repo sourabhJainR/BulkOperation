@@ -12,7 +12,7 @@
     actionSignature: null
   };
   const ID = "bo-";
-  const textOf = node => (node?.innerText || node?.textContent || "").replace(/\\s+/g, " ").trim();
+  const textOf = node => (node?.innerText || node?.textContent || "").replace(/\s+/g, " ").trim();
   const visible = node => {
     if (!node || !node.isConnected) return false;
     const style = getComputedStyle(node);
@@ -22,13 +22,13 @@
   const isOurNode = node => node?.id?.startsWith("bo-") || node?.classList?.contains("bo-row-checkbox");
 
   function githubBranchRows() {
-    if (!/github\\.com$/.test(location.hostname) || !/\\/(branches|branches\\/all)(?:[/?#]|$)/.test(location.pathname)) return [];
+    if (!/github\.com$/.test(location.hostname) || !/\/(branches|branches\/all)(?:[/?#]|$)/.test(location.pathname)) return [];
     const anchors = [...document.querySelectorAll('a[href*="/tree/"], a[href*="/branch/"]')];
     const rows = new Set();
     for (const anchor of anchors) {
       if (!visible(anchor)) continue;
       const href = new URL(anchor.href, location.href);
-      const match = href.pathname.match(/\\/(?:tree|branch)\\/(.+)$/);
+      const match = href.pathname.match(/\/(?:tree|branch)\/(.+)$/);
       if (!match) continue;
       let row = anchor.closest("tr, [role=row], li");
       if (!row) {
@@ -70,7 +70,7 @@
     const rowText = textOf(item.row).toLowerCase();
     const branch = item.label.toLowerCase();
     return branch === "main" || branch === "master" || branch === "gh-pages" ||
-      /\\bdefault\\b/.test(rowText) || /\\bprotected\\b/.test(rowText);
+      /\bdefault\b/.test(rowText) || /\bprotected\b/.test(rowText);
   }
 
   function ensureCheckbox(item) {
@@ -135,7 +135,7 @@
   }
 
   function actionName(button) {
-    return (button.getAttribute("aria-label") || button.title || textOf(button)).replace(/\\s+/g, " ").trim();
+    return (button.getAttribute("aria-label") || button.title || textOf(button)).replace(/\s+/g, " ").trim();
   }
 
   function genericActions(item) {
@@ -224,7 +224,7 @@
     const stillPresent = [...document.querySelectorAll('a[href*="/tree/"],a[href*="/branch/"]')].some(a => {
       try {
         const path = new URL(a.href, location.href).pathname;
-        const match = path.match(/\\/(?:tree|branch)\\/(.+)$/);
+        const match = path.match(/\/(?:tree|branch)\/(.+)$/);
         return match && decodeURIComponent(match[1]) === item.label;
       } catch { return false; }
     });

@@ -12,7 +12,7 @@ for (const file of ["content.js", "service-worker.js", "popup.js"]) {
   const source = fs.readFileSync(path.join(root, "extension", file), "utf8");
   new vm.Script(source, { filename: file });
 }
-if (manifest.permissions.includes("webRequest") || manifest.permissions.includes("debugger")) {
+if ((manifest.permissions || []).includes("webRequest") || (manifest.permissions || []).includes("debugger")) {
   throw new Error("Unexpected high-risk browser permission.");
 }
 console.log("BulkOperation package validation passed.");

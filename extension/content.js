@@ -9,7 +9,9 @@
     observer: null,
     running: false,
     completed: new Set(),
-    actionSignature: null
+    actionSignature: null,
+    discoveredActions: new Map(),
+    discoveryToken: 0
   };
   const textOf = node => (node?.innerText || node?.textContent || "").replace(/\s+/g, " ").trim();
   const visible = node => {
@@ -85,6 +87,7 @@
       else state.selected.delete(item.key);
       item.row.classList.toggle("bo-selected-row", checkbox.checked);
       updateToolbar();
+      refreshActionOptions();
     });
     const anchor = item.row.querySelector("a,td,[role=gridcell]") || item.row.firstElementChild;
     if (anchor) anchor.prepend(checkbox);
@@ -135,14 +138,91 @@
     updateToolbar();
   }
 
-  function actionName(button) {
-    return (button.getAttribute("aria-label") || button.title || textOf(button)).replace(/\s+/g, " ").trim();
+  function actionName(node) {
+    const candidates = [
+      node.getAttribute("aria-label"),
+      node.getAttribute("title"),
+      node.getAttribute("data-tooltip"),
+      node.getAttribute("data-testid"),
+      textOf(node)
+    ].filter(Boolean);
+    return (candidates[0] || "").replace(/\s+/g, " ").trim().replace(/\s+\(.*\)$/, "");
   }
 
-  function genericActions(item) {
-    return [...item.row.querySelectorAll("button,[role=button],a[role=button]")]
-      .filter(node => visible(node) && !node.classList.contains("bo-row-checkbox"))
-      .map(actionName).filter(name => name && name.length <= 70);
+  function isMenuTrigger(node) {
+    const label = [
+      node.getAttribute("aria-label"), node.getAttribute("title"),
+      node.getAttribute("data-testid"), textOf(node)
+    ].filter(Boolean).join(" ").toLowerCase();
+    const popup = (node.getAttribute("aria-haspopup") || "").toLowerCase();
+    return popup === "menu" || popup === "true" ||
+      node.hasAttribute("aria-expanded") ||
+      /more|actions?|options?|menu|overflow|ellipsis|kebab|dropdown/i.test(label) ||
+      /overflow|ellipsis|kebab|more-options|row-menu/i.test(node.getAttribute("data-testid") || "");
+  }
+
+  function visibleMenuActions() {
+    const roots = [...document.querySelectorAll(
+      '[role="menu"],[data-radix-menu-content],[data-state="open"][role="dialog"],[role="listbox"]'
+    )].filter(visible);
+    const nodes = new Set();
+    for (const root of roots) {
+      for (const node of root.querySelectorAll('[role="menuitem"],[role="option"],button,a,[role="button"]')) {
+        if (visible(node)) nodes.add(node);
+      }
+    }
+    for (const node of document.querySelectorAll('[role="menuitem"],[role="option"]')) {
+      if (visible(node)) nodes.add(node);
+    }
+    return [...nodes];
+  }
+
+  async function discoverRowActions(item) {
+    if (!item.row.isConnected) return [];
+    const actions = new Map();
+    const controls = [...item.row.querySelectorAll("button,[role=button],a[role=button]")]
+      .filter(node => visible(node) && !node.classList.contains("bo-row-checkbox") && !isOurNode(node));
+    for (const node of controls) {
+      const label = actionName(node);
+      if (label && label.length <= 90 && !isMenuTrigger(node)) {
+        actions.set(JSON.stringify({ kind: "direct", label }), { kind: "direct", label });
+      }
+    }
+
+    // Inspect every identifiable row menu trigger. Menu entries may live in a
+    // portal outside the row, so read the visible page-level menu after opening.
+    const triggers = controls.filter(isMenuTrigger);
+    for (const trigger of triggers) {
+      if (!trigger.isConnected || !visible(trigger)) continue;
+      try {
+        trigger.click();
+        await wait(140);
+        for (const node of visibleMenuActions()) {
+          const label = actionName(node);
+          if (!label || label.length > 90 || /^(close|cancel)$/i.test(label)) continue;
+          const descriptor = { kind: "menu", label };
+          actions.set(JSON.stringify(descriptor), descriptor);
+        }
+      } finally {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        await wait(60);
+      }
+    }
+    return [...actions.values()];
+  }
+
+  async function refreshActionOptions() {
+    const token = ++state.discoveryToken;
+    const selected = [...state.selected.values()].filter(item => item.kind === "generic");
+    if (!selected.length || selected.length !== state.selected.size) {
+      state.discoveredActions.clear();
+      updateToolbar();
+      return;
+    }
+    const discovered = await Promise.all(selected.map(async item => [item.key, await discoverRowActions(item)]));
+    if (token !== state.discoveryToken) return;
+    state.discoveredActions = new Map(discovered);
+    updateToolbar();
   }
 
   function updateToolbar() {
@@ -156,9 +236,16 @@
     if (github && selected.every(x => x.kind === "github-branch")) {
       values.push(["Delete selected branches", "github-delete-branch"]);
     } else if (selected.length && selected.every(x => x.kind === "generic")) {
-      const lists = selected.map(genericActions);
-      const common = lists.length ? lists[0].filter(name => lists.every(list => list.includes(name))) : [];
-      for (const name of [...new Set(common)].sort()) values.push(["Run: " + name, "generic:" + name]);
+      const lists = selected.map(item => state.discoveredActions.get(item.key) || []);
+      const common = lists.length ? lists[0].filter(action =>
+        lists.every(list => list.some(candidate => candidate.kind === action.kind && candidate.label === action.label))
+      ) : [];
+      for (const action of common) {
+        values.push([
+          (action.kind === "menu" ? "Menu: " : "Button: ") + action.label,
+          "generic:" + JSON.stringify(action)
+        ]);
+      }
     }
     const signature = JSON.stringify(values);
     if (signature !== state.actionSignature) {
@@ -172,6 +259,8 @@
 
   function clearSelection() {
     state.selected.clear();
+    state.discoveredActions.clear();
+    state.discoveryToken++;
     for (const row of document.querySelectorAll(".bo-selected-row")) row.classList.remove("bo-selected-row");
     for (const checkbox of document.querySelectorAll(".bo-row-checkbox")) checkbox.checked = false;
     updateToolbar();
@@ -269,12 +358,27 @@
         try {
           if (action === "github-delete-branch") await githubDelete(item);
           else if (action.startsWith("generic:")) {
-            const name = action.slice("generic:".length);
-            const target = [...item.row.querySelectorAll("button,[role=button],a[role=button]")]
-              .find(node => visible(node) && actionName(node) === name);
-            if (!target) throw new Error("The selected row no longer exposes the action: " + name);
+            const descriptor = JSON.parse(action.slice("generic:".length));
             const dialogsBefore = [...document.querySelectorAll('[role="dialog"],dialog,[aria-modal="true"]')].filter(visible).length;
-            target.click();
+            if (descriptor.kind === "direct") {
+              const target = [...item.row.querySelectorAll("button,[role=button],a[role=button]")]
+                .find(node => visible(node) && !isMenuTrigger(node) && actionName(node) === descriptor.label);
+              if (!target) throw new Error("The selected row no longer exposes button: " + descriptor.label);
+              target.click();
+            } else {
+              const triggers = [...item.row.querySelectorAll("button,[role=button],a[role=button]")].filter(node => visible(node) && isMenuTrigger(node));
+              let target = null;
+              for (const trigger of triggers) {
+                trigger.click();
+                await wait(140);
+                target = visibleMenuActions().find(node => actionName(node) === descriptor.label);
+                if (target) break;
+                document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+                await wait(60);
+              }
+              if (!target) throw new Error("The selected row no longer exposes menu action: " + descriptor.label);
+              target.click();
+            }
             await wait(400);
             const dialogsAfter = [...document.querySelectorAll('[role="dialog"],dialog,[aria-modal="true"]')].filter(visible).length;
             if (dialogsAfter > dialogsBefore) {

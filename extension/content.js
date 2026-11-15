@@ -11,7 +11,6 @@
     completed: new Set(),
     actionSignature: null
   };
-  const ID = "bo-";
   const textOf = node => (node?.innerText || node?.textContent || "").replace(/\s+/g, " ").trim();
   const visible = node => {
     if (!node || !node.isConnected) return false;
@@ -148,7 +147,7 @@
 
   function updateToolbar() {
     const count = state.toolbar?.querySelector("#bo-count");
-    if (count && count.textContent !== state.selected.size + " selected") count.textContent = state.selected.size + " selected";
+    if (!state.running && count && count.textContent !== state.selected.size + " selected") count.textContent = state.selected.size + " selected";
     const action = state.toolbar?.querySelector("#bo-action");
     if (!action) return;
     const selected = [...state.selected.values()];

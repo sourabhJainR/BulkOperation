@@ -8,7 +8,8 @@
     toolbar: null,
     observer: null,
     running: false,
-    completed: new Set()
+    completed: new Set(),
+    actionSignature: null
   };
   const ID = "bo-";
   const textOf = node => (node?.innerText || node?.textContent || "").replace(/\\s+/g, " ").trim();
@@ -145,21 +146,27 @@
 
   function updateToolbar() {
     const count = state.toolbar?.querySelector("#bo-count");
-    if (count) count.textContent = state.selected.size + " selected";
+    if (count && count.textContent !== state.selected.size + " selected") count.textContent = state.selected.size + " selected";
     const action = state.toolbar?.querySelector("#bo-action");
     if (!action) return;
-    const previous = action.value;
-    action.replaceChildren(new Option("Choose an action…", ""));
     const selected = [...state.selected.values()];
     const github = selected.some(x => x.kind === "github-branch");
+    const values = [];
     if (github && selected.every(x => x.kind === "github-branch")) {
-      action.add(new Option("Delete selected branches", "github-delete-branch"));
+      values.push(["Delete selected branches", "github-delete-branch"]);
     } else if (selected.length && selected.every(x => x.kind === "generic")) {
       const lists = selected.map(genericActions);
       const common = lists.length ? lists[0].filter(name => lists.every(list => list.includes(name))) : [];
-      for (const name of [...new Set(common)].sort()) action.add(new Option("Run: " + name, "generic:" + name));
+      for (const name of [...new Set(common)].sort()) values.push(["Run: " + name, "generic:" + name]);
     }
-    if ([...action.options].some(x => x.value === previous)) action.value = previous;
+    const signature = JSON.stringify(values);
+    if (signature !== state.actionSignature) {
+      const previous = action.value;
+      action.replaceChildren(new Option("Choose an action…", ""));
+      for (const [label, value] of values) action.add(new Option(label, value));
+      if ([...action.options].some(x => x.value === previous)) action.value = previous;
+      state.actionSignature = signature;
+    }
   }
 
   function clearSelection() {

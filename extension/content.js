@@ -133,18 +133,33 @@
     updateToolbar();
   }
 
+  function actionName(button) {
+    return (button.getAttribute("aria-label") || button.title || textOf(button)).replace(/\\s+/g, " ").trim();
+  }
+
+  function genericActions(item) {
+    return [...item.row.querySelectorAll("button,[role=button],a[role=button]")]
+      .filter(node => visible(node) && !node.classList.contains("bo-row-checkbox"))
+      .map(actionName).filter(name => name && name.length <= 70);
+  }
+
   function updateToolbar() {
     const count = state.toolbar?.querySelector("#bo-count");
     if (count) count.textContent = state.selected.size + " selected";
     const action = state.toolbar?.querySelector("#bo-action");
-    if (action) {
-      const previous = action.value;
-      const hasGithub = [...state.selected.values()].some(x => x.kind === "github-branch");
-      action.replaceChildren(new Option("Choose an action…", ""));
-      if (hasGithub) action.add(new Option("Delete selected branches", "github-delete-branch"));
-      else action.add(new Option("Run a row action (where supported)", "generic-row-action"));
-      if ([...action.options].some(x => x.value === previous)) action.value = previous;
+    if (!action) return;
+    const previous = action.value;
+    action.replaceChildren(new Option("Choose an action…", ""));
+    const selected = [...state.selected.values()];
+    const github = selected.some(x => x.kind === "github-branch");
+    if (github && selected.every(x => x.kind === "github-branch")) {
+      action.add(new Option("Delete selected branches", "github-delete-branch"));
+    } else if (selected.length && selected.every(x => x.kind === "generic")) {
+      const lists = selected.map(genericActions);
+      const common = lists.length ? lists[0].filter(name => lists.every(list => list.includes(name))) : [];
+      for (const name of [...new Set(common)].sort()) action.add(new Option("Run: " + name, "generic:" + name));
     }
+    if ([...action.options].some(x => x.value === previous)) action.value = previous;
   }
 
   function clearSelection() {
@@ -199,10 +214,14 @@
       else throw new Error("Could not confirm deletion through GitHub's visible interface.");
     }
     await wait(500);
-    if (item.row.isConnected && document.contains(item.row)) {
-      const stillPresent = [...document.querySelectorAll('a[href*="/tree/"],a[href*="/branch/"]')].some(a => a.href.includes(encodeURIComponent(item.label)));
-      if (stillPresent) throw new Error("GitHub has not visibly removed this branch yet.");
-    }
+    const stillPresent = [...document.querySelectorAll('a[href*="/tree/"],a[href*="/branch/"]')].some(a => {
+      try {
+        const path = new URL(a.href, location.href).pathname;
+        const match = path.match(/\\/(?:tree|branch)\\/(.+)$/);
+        return match && decodeURIComponent(match[1]) === item.label;
+      } catch { return false; }
+    });
+    if (stillPresent) throw new Error("GitHub has not visibly removed this branch yet.");
   }
 
   function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
@@ -218,7 +237,14 @@
         count.textContent = "Processing " + (index + 1) + "/" + items.length + "…";
         try {
           if (action === "github-delete-branch") await githubDelete(item);
-          else throw new Error("No generic action adapter is available for this row type yet.");
+          else if (action.startsWith("generic:")) {
+            const name = action.slice("generic:".length);
+            const target = [...item.row.querySelectorAll("button,[role=button],a[role=button]")]
+              .find(node => visible(node) && actionName(node) === name);
+            if (!target) throw new Error("The selected row no longer exposes the action: " + name);
+            target.click();
+            await wait(500);
+          } else throw new Error("Choose a supported action.");
           results.push({ label: item.label, ok: true });
           state.completed.add(item.key);
           state.selected.delete(item.key);

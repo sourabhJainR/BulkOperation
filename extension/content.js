@@ -68,9 +68,11 @@
   function isProtectedBranch(item) {
     if (item.kind !== "github-branch") return false;
     const rowText = textOf(item.row).toLowerCase();
+    const metadata = [...item.row.querySelectorAll("[aria-label],[title]")]
+      .map(node => ((node.getAttribute("aria-label") || "") + " " + (node.getAttribute("title") || "")).toLowerCase()).join(" ");
     const branch = item.label.toLowerCase();
     return branch === "main" || branch === "master" || branch === "gh-pages" ||
-      /\bdefault\b/.test(rowText) || /\bprotected\b/.test(rowText);
+      /\bdefault\b/.test(rowText + " " + metadata) || /\bprotected\b/.test(rowText + " " + metadata);
   }
 
   function ensureCheckbox(item) {

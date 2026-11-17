@@ -102,7 +102,7 @@ Build the Windows package from PowerShell:
 ./scripts/package.ps1
 ```
 
-See [contributing](docs/contributing.md) before submitting changes. Wiki-ready Markdown pages are maintained in [docs/wiki/](docs/wiki/Home.md); after the GitHub Wiki is initialized, these pages can be copied into the Wiki.
+See [contributing](docs/contributing.md) before submitting changes. The Wiki Home page is published; remaining Wiki-ready Markdown pages are maintained in [docs/wiki/](docs/wiki/Home.md) and can be copied into the existing Wiki. See [Wiki publishing instructions](docs/wiki/PUBLISHING.md).
 
 ## Support
 

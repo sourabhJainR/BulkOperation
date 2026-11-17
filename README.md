@@ -4,7 +4,7 @@ BulkOperation is a Manifest V3 Chrome extension for selecting multiple rows in w
 
 It is designed to make repetitive page tasks easier without using hidden site APIs, bypassing permissions, or guessing which control to click.
 
-[Project website](https://sourabhjainr.github.io/BulkOperation/) · [Documentation](https://sourabhjainr.github.io/BulkOperation/docs/) · [GitHub Wiki](https://github.com/sourabhJainR/BulkOperation/wiki) · [Wiki source pages](docs/wiki/Home.md) · [Releases](https://github.com/sourabhJainR/BulkOperation/releases)
+[Project website](https://sourabhjainr.github.io/BulkOperation/) · [Documentation](https://sourabhjainr.github.io/BulkOperation/) · [GitHub Wiki](https://github.com/sourabhJainR/BulkOperation/wiki) · [Wiki source pages](docs/wiki/Home.md) · [Releases](https://github.com/sourabhJainR/BulkOperation/releases)
 
 ## Features
 
